@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"html/template"
@@ -12,10 +13,11 @@ import (
 )
 
 type Prescription struct {
-	ID       string
-	Patient  string
-	Drug     string
-	Quantity int
+	ID       string `bson:"_id"`
+	Patient  string `bson:"patient"`
+	Drug     string `bson:"drug"`
+	Quantity int    `bson:"quantity"`
+	Version  int    `bson:"version"`
 }
 
 func main() {
@@ -36,19 +38,21 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("connected to MongoDB")
-
+	prescription := client.Database("rxmodern").Collection("prescriptions")
 	page, err := template.ParseFiles("templates/prescription.html")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		rx := Prescription{
-			ID:       "rx-1001",
-			Patient:  "Asha Verma (SYNTHETIC)",
-			Drug:     "Amoxicillin 500 mg",
-			Quantity: 21}
-		err := page.Execute(w, rx)
+		var rx Prescription
+		err := prescription.FindOne(r.Context(), bson.M{"_id": "rx-1001"}).Decode(&rx)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "could not load prescription", http.StatusInternalServerError)
+			return
+		}
+		err = page.Execute(w, rx)
 		if err != nil {
 			log.Println(err)
 		}
