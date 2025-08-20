@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"html/template"
 	"log"
 	"net/http"
 	"time"
 )
+
+type Prescription struct {
+	ID       string
+	Patient  string
+	Drug     string
+	Quantity int
+}
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -28,8 +36,22 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("connected to MongoDB")
+
+	page, err := template.ParseFiles("templates/prescription.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "RxModern is running")
+		rx := Prescription{
+			ID:       "rx-1001",
+			Patient:  "Asha Verma (SYNTHETIC)",
+			Drug:     "Amoxicillin 500 mg",
+			Quantity: 21}
+		err := page.Execute(w, rx)
+		if err != nil {
+			log.Println(err)
+		}
 	})
 	log.Println("listening on http://localhost:8080")
 	err = http.ListenAndServe(":8080", nil)
